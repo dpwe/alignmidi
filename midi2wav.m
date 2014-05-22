@@ -24,7 +24,7 @@ if length(AF) == 0
   AF = fullfile(p, [n, wavext]);
 end
 
-if ismac
+if ismac % although... now we have timidity on mac (thanks, homebrew!)
   % Use QuickTime on Mac
 
   % Make sure output file is not there (else QT script bombs)

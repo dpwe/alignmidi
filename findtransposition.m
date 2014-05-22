@@ -12,9 +12,18 @@ if nargin < 4; do_plot = 0;  end
 %dropbass = 40;
 % Cross-correlate the average log-freq spectra to find best pitch
 % alignment 
-xc = xcorr(rownorm01(mean(DB((dropbass+1):end,:),2)), ...
-           rownorm01(mean(DA((dropbass+1):end,:),2)));
-[vv,xcp] = max(xc);
+
+% Old, memory efficient, collapse time, make mistakes
+%xc = xcorr(rownorm01(mean(DB((dropbass+1):end,:),2)), ...
+%           rownorm01(mean(DA((dropbass+1):end,:),2)));
+%[vv,xcp] = max(xc);
+
+% New, full 2D, expensive, more accurate
+xc = xcorr2(DB((dropbass+1):end,:), ...
+            DA((dropbass+1):end,:));
+% Find row containing largest value
+[vv,xcp] = max(max(xc,[],2));
+
 xclen = size(DA,1)-dropbass-1;
 trans = (xcp - xclen - 1);
 if do_plot

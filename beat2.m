@@ -41,8 +41,6 @@ if nargin < 3;   startbpm = 0; end
 if nargin < 4;   tightness = 0; end
 if nargin < 5;   doplot = 0; end
 
-PLOTCUMSCORE = 0;  % leave 4th pane as tempo autoco
-
 if length(startbpm) == 2
   temposd = startbpm(2);
   startbpm = startbpm(1);
@@ -83,7 +81,7 @@ b = [];
 % or startbpm > 0 but temposd > 0 too (means search around startbpm)
 % If onsetenv is empty, have to run tempo too to convert waveform
 % to onsetenv, but we might not use the tempo it picks.
-if startbpm == 0 | temposd > 0 | length(onsetenv) == 0
+if startbpm == 0 || temposd > 0 || length(onsetenv) == 0
 
   if startbpm == 0
     tempomean = 240;
@@ -98,12 +96,12 @@ if startbpm == 0 | temposd > 0 | length(onsetenv) == 0
   % Subfunction estimates global BPM; returns 'onset strength'
   % waveform onsetenv
   % If we were given an onsetenv as input, will use that
-  [t,xcr,D,onsetenv,oesr,ff] = tempo2(d,sr,tempomean,temposd,debug);
+  [t,xcr,D,onsetenv,oesr] = tempo2(d,sr,tempomean,temposd,debug);
   
   % tempo.m returns the top-2 BPM estimates; use faster one for
   % beat tracking
   usemax = 0;
-  if (startbpm == 0 | temposd > 0)
+  if (startbpm == 0 || temposd > 0)
     if usemax == 1
       startbpm = max(t([1 2]));
     else
@@ -122,8 +120,6 @@ if startbpm == 0 | temposd > 0 | length(onsetenv) == 0
     tt = [1:length(onsetenv)]/oesr;
     subplot(411)
     imagesc(tt,[1 40],D); axis xy
-    ytk = get(gca,'YTick');
-    set(gca,'YTickLabel',round(ff(ytk)));
     subplot(412)
     plot(tt,onsetenv);
   
@@ -136,16 +132,15 @@ end
 onsetenv = onsetenv/std(onsetenv);
 
 % convert startbpm to startpd
-startpd = round((60*oesr)/startbpm);
+startpd = (60*oesr)/startbpm;
 %disp(['startpd=',num2str(startpd)]);
 
 pd = startpd;
-
+  
 % Smooth beat events
 templt = exp(-0.5*(([-pd:pd]/(pd/32)).^2));
 localscore = conv(templt,onsetenv);
-%localscore = localscore(round(length(templt)/2)+[1:length(onsetenv)]);
-localscore = localscore(pd+[1:length(onsetenv)]);
+localscore = localscore(round(length(templt)/2)+[1:length(onsetenv)]);
 %imagesc(localscore)%%%%
 
 % DP version:
@@ -156,13 +151,18 @@ backlink = zeros(1,length(localscore));
 cumscore = zeros(1,length(localscore));
 
 % search range for previous beat
-prange = round(-2*pd):-round(pd/2);
+prangemin = -round(2*pd);
+prangemax = -round(pd/2);
+prange = prangemin:prangemax;
 
 % Skewed window
 txwt = (-tightness*abs((log(prange/-pd)).^2));
 
 starting = 1;
-for i = 1:length(localscore)
+% Break the loop into two pieces to make it faster once we're past the
+% beginning
+boundary = max(-prange);
+for i = 1:boundary
   
   timerange = i + prange;
   
@@ -179,16 +179,30 @@ for i = 1:length(localscore)
 
   % special case to catch first onset
 %  if starting == 1 & localscore(i) > 100*abs(vv)
-  if starting == 1 & localscore(i) < 0.01*max(localscore);
+  if starting == 1 && localscore(i) < 0.01*max(localscore);
     backlink(i) = -1;
   else
     backlink(i) = timerange(xx);
     % prevent it from resetting, even through a stretch of silence
     starting = 0;
   end
-  
 end
-
+% Second version of the loop strips out conditionals to run faster
+localscore = localscore - alpha;
+for i = (boundary+1):length(localscore)
+  % Search over all possible predecessors and apply transition 
+  % weighting
+  scorecands = txwt + cumscore(i+prangemin:i+prangemax);
+  % Find best predecessor beat
+  [vv,xx] = max(scorecands);
+  % Add on local score
+  cumscore(i) = vv + localscore(i); % -alpha pre-baked into localscore
+  % Store backtrace pointer
+  backlink(i) = prangemin + xx; % defer i-1 to outside the loop
+end
+backlink((boundary+1):length(localscore)) = backlink((boundary+1):length(localscore)) + [(boundary+1):length(localscore)] - 1;
+% Restore original localscore
+localscore = localscore + alpha;
 %%%% Backtrace
 
 % Cumulated score is stabilized to lie in constant range, 
@@ -258,17 +272,15 @@ if doplot == 1
   ax([3 4]) = [-10 80];
   axis(ax);
    
-  if PLOTCUMSCORE
-     % 4th pane as cumscore
-     subplot(414)
-     tt = [1:length(localscore)]/oesr;
-     ocumscore = cumscore - [0:length(cumscore)-1]*max(cumscore)/length(cumscore);
-     plot(tt,ocumscore);
-     hold on; plot([b;b],[min(ocumscore);max(ocumscore)]*ones(1,length(b)),'g'); hold off
-  end
-     
+  % 4th pane as cumscore
+  subplot(414)
+  tt = [1:length(localscore)]/oesr;
+  ocumscore = cumscore - [0:length(cumscore)-1]*max(cumscore)/length(cumscore);
+  plot(tt,ocumscore);
+  hold on; plot([b;b],[min(ocumscore);max(ocumscore)]*ones(1,length(b)),'g'); hold off
+  
   if length(plotlims) > 0
-    for i = 1:(3+PLOTCUMSCORE);
+    for i = 1:4;
       subplot(4,1,i)
       ax = axis;
       ax([1 2]) = plotlims;
@@ -280,8 +292,8 @@ end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [t,xcr,D,onsetenv,oesr,ff] = tempo2(d,sr,tmean,tsd,debug)
-% [t,xcr,D,onsetenv,oesr,ff] = tempo(d,sr,tmean,tsd,debug)
+function [t,xcr,D,onsetenv,oesr] = tempo2(d,sr,tmean,tsd,debug)
+% [t,xcr,D,onsetenv,oesr] = tempo(d,sr,tmean,tsd,debug)
 %    Estimate the overall tempo of a track for the MIREX McKinney
 %    contest.  
 %    d is the input audio at sampling rate sr.  tmean is the mode
@@ -294,7 +306,6 @@ function [t,xcr,D,onsetenv,oesr,ff] = tempo2(d,sr,tmean,tsd,debug)
 %    D is the mel-freq spectrogram
 %    onsetenv is the "onset strength waveform", used for beat tracking
 %    oesr is the sampling rate of onsetenv and D.
-%    ff returns the center freqs of each row of D.
 %
 % 2006-08-25 dpwe@ee.columbia.edu
 % uses: localmax, fft2melmx
@@ -331,16 +342,10 @@ if sr < 2000
 else
   onsetenv = [];
   
-%  sro = 8000;
-%  sro = 22050;
-  % 2013-07-19: Calculate onset function using all the bandwidth
-  % we're given
-  sro = sr;
-  % specgram: 256 bin @ 8kHz = 32 ms / 4 ms hop
-  %swin = 256;
-  swin = 2^round(log(0.016*sro)/log(2));
-  %shop = 32;
-  shop = round(0.004*sro);
+  sro = 16000;
+  % specgram: 256 bin @ 16kHz = 16 ms / 2 ms hop
+  swin = 256;
+  shop = 32;
   % mel channels
   nmel = 40;
   % sample rate for specgram frames (granularity for rest of processing)
@@ -351,42 +356,39 @@ end
 acmax = round(4*oesr);
 
 D = 0;
-ff = [];
-
+  
 if length(onsetenv) == 0
   % no onsetenv provided - have to calculate it
 
-  % ensure mono
-  if size(d,2) > 1
-    d = mean(d,2);
-  end
-  
-  % resample to target sampling rate?
+  % resample to 8 kHz
   if (sr ~= sro)
     gg = gcd(sro,sr);
     d = resample(d,sro/gg,sr/gg);
     sr = sro;
   end
 
-  D = specgram(d,swin,sr,swin,swin-shop);
+  % prepad with silence to make onset envelope line up with time
+  % domain correctly.  Not sure why we need this?
+  %D = specgram([zeros(swin,1);d],swin,sr,swin,swin-shop);
+  %D = myspecgram([zeros(swin,1);d],swin,sr,swin,swin-shop);
+  D = stft([zeros(swin,1);d],swin,swin,shop);
 
   % Construct db-magnitude-mel-spectrogram
-%  mlmx = fft2melmx(swin,sr,nmel);
-  [mlmx,ff] = fft2melmx(swin,1.0*sr,nmel);
+  mlmx = fft2melmx(swin,sr,nmel);
   D = 20*log10(max(1e-10,mlmx(:,1:(swin/2+1))*abs(D)));
 
-  % Only look at the top 80 dB
-  D = max(D, max(max(D))-80);
+  % Only look at the top 60 dB
+  D = max(D, max(D(:))-60);
 
   %imgsc(D)
   
   % The raw onset decision waveform
-  mm = (mean(max(0,diff(D')')));
+  mm = mean(max(0,diff(D,1,2)));
   eelen = length(mm);
 
   % dc-removed mm
   onsetenv = filter([1 -1], [1 -.99],mm);
-
+  
 end  % of onsetenv calc block
 
 % Find rough global period
@@ -499,11 +501,10 @@ if debug > 0
                       ''],num2str(t(2)),' bpm @ ',num2str(1-t(3))]);
 
   subplot(414)
-  tt = [0:acmax]/oesr;
-  plot(tt,xcr,'-b', ...
-       tt,xcrwin*maxpk,'-r', ...
-       [startpd startpd]/oesr, [min(xcr) max(xcr)], '-g', ...
-       [startpd2 startpd2]/oesr, [min(xcr) max(xcr)], '-c');
+  plot([0:acmax],xcr,'-b', ...
+       [0:acmax],xcrwin*maxpk,'-r', ...
+       [startpd startpd], [min(xcr) max(xcr)], '-g', ...
+       [startpd2 startpd2], [min(xcr) max(xcr)], '-c');
   grid;
 
 end
@@ -682,3 +683,109 @@ else
   z(~linpts) = brkpt+(log(f(~linpts)/brkfrq))./log(logstep);
 
 end
+
+function D = stft(x, f, w, h, sr)
+% D = stft(X, F, W, H, SR)                       Short-time Fourier transform.
+%	Returns some frames of short-term Fourier transform of x.  Each 
+%	column of the result is one F-point fft (default 256); each
+%	successive frame is offset by H points (W/2) until X is exhausted.  
+%       Data is hann-windowed at W pts (F), or rectangular if W=0, or 
+%       with W if it is a vector.
+%       Without output arguments, will plot like sgram (SR will get
+%       axes right, defaults to 8000).
+%	See also 'istft.m'.
+% dpwe 1994may05.  Uses built-in 'fft'
+% $Header: /home/empire6/dpwe/public_html/resources/matlab/pvoc/RCS/stft.m,v 1.4 2010/08/13 16:03:14 dpwe Exp $
+
+if nargin < 2;  f = 256; end
+if nargin < 3;  w = f; end
+if nargin < 4;  h = 0; end
+if nargin < 5;  sr = 8000; end
+
+% expect x as a row
+if size(x,1) > 1
+  x = x';
+end
+
+s = length(x);
+
+if length(w) == 1
+  if w == 0
+    % special case: rectangular window
+    win = ones(1,f);
+  else
+    if rem(w, 2) == 0   % force window to be odd-len
+      w = w + 1;
+    end
+    halflen = (w-1)/2;
+    halff = f/2;   % midpoint of win
+    halfwin = 0.5 * ( 1 + cos( pi * (0:halflen)/halflen));
+    win = zeros(1, f);
+    acthalflen = min(halff, halflen);
+    win((halff+1):(halff+acthalflen)) = halfwin(1:acthalflen);
+    win((halff+1):-1:(halff-acthalflen+2)) = halfwin(1:acthalflen);
+  end
+else
+  win = w;
+end
+
+w = length(win);
+% now can set default hop
+if h == 0
+  h = floor(w/2);
+end
+
+c = 1;
+
+% pre-allocate output array
+%d = zeros((1+f/2),1+fix((s-f)/h));
+%
+%for b = 0:h:(s-f)
+%  u = win.*x((b+1):(b+f));
+%  t = fft(u);
+%  d(:,c) = t(1:(1+f/2))';
+%  c = c+1;
+%end;
+
+%d = fft(repmat(win', 1, 1+fix((s-f)/h)) .* frame(x,f,h));
+d = fft(bsxfun(@times, frame(x,f,h), win'));
+d = d(1:(1+f/2),:);
+
+% If no output arguments, plot a spectrogram
+if nargout == 0
+  tt = [0:size(d,2)]*h/sr;
+  ff = [0:size(d,1)]*sr/f;
+  imagesc(tt,ff,20*log10(abs(d)));
+  axis('xy');
+  xlabel('time / sec');
+  ylabel('freq / Hz')
+  % leave output variable D undefined
+else
+  % Otherwise, no plot, but return STFT
+  D = d;
+end
+
+function [Y,winix] = frame(X,W,H)
+% Y = frame(X,W,H)
+%   Return Y as a set of columns as W-point segments of X stepped
+%   by H. 
+%   There's no windowing (i.e. scaling by a tapered window) in here. 
+% 2010-11-14 Dan Ellis dpwe@ee.columbia.edu
+
+%lx = length(X);
+%nh = 1+ceil((length(X)-W)/H);
+%% Pad X to an integral number of windows
+%Xp = [X(:)',zeros(1, (W+(nh-1)*H)-lx)];
+% No, truncate to have only whole windows
+nh = 1+floor((length(X)-W)/H);
+Xp = [X(1:W+(nh-1)*H)'];
+
+% Index-fu:
+% We build a matrix of indices that pull out the values we want...
+% (columns of 1:W, with successive multiples of H added on)
+%winix = repmat(H*[0:(nh-1)],W,1)+repmat([1:W]',1,nh);
+winix = bsxfun(@plus, repmat([1:W]',1,nh), H*[0:(nh-1)]);
+%winix = bsxfun(@plus, repmat(H*[0:(nh-1)],W,1), [1:W]');
+
+% .. then the output is just the input matrix indexed by these indices
+Y = Xp(winix);

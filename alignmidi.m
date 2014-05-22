@@ -11,8 +11,8 @@ function [p,q,SM,DAB,DMB,baa,bma] = alignmidi(MF,WF,do_plot,out,params)
 %      params holds various other parameters:
 %        params.tightness = 800 - beat tracking rigidity
 %        params.voxchan = 4     - MIDI channel to isolate as vox
-%        params.gulley = 0.2    - proportion of edges where DTW can start/end
-%        params.horizwt = 1.1   - penalty factor for horiz/vert DTW steps
+%        params.gulley = 0.33   - proportion of edges where DTW can start/end
+%        params.horizwt = 0.5   - penalty factor for horiz/vert DTW steps
 %     Outputs:
 %      [p,q] are the path from DP
 %      S is the similarity matrix.
@@ -21,8 +21,8 @@ function [p,q,SM,DAB,DMB,baa,bma] = alignmidi(MF,WF,do_plot,out,params)
 %       and midi respectively.
 %  2013-07-16 Dan Ellis dpwe@ee.columbia.edu
 
-VERSION = 0.02;
-DATE = 20130719;
+VERSION = 0.03;
+DATE = 20140312;
 
 if nargin < 3;  do_plot = 0; end
 if nargin < 4;  out = MF; end
@@ -38,10 +38,10 @@ if ~isfield(params, 'tightness'); params.tightness = 800; end
 if ~isfield(params, 'voxchan');   params.voxchan = 4; end
 % Proportion of initial and final edges to accept for DTW
 % (mismatched start/end)
-if ~isfield(params, 'gulley');    params.gulley = 0.2; end
+if ~isfield(params, 'gulley');    params.gulley = 0.3; end
 % Extra weighting for horizontal/vertical steps in DTW (to
 % encourage diagonal)
-if ~isfield(params, 'horizwt');   params.horizwt = 1.1; end
+if ~isfield(params, 'horizwt');   params.horizwt = 0.5; end
 
 % output file names
 [p,n,e] = fileparts(out);
@@ -63,7 +63,18 @@ da = audioread(WF, sr, 1);
 
 % Calculate beat times and beat-sync log-f sgram features
 [DMB,bm,ff] = beatsynclogspec(dm, sr);
+Mbpm = 60/median(diff(bm));
 [DAB,ba,ff] = beatsynclogspec(da, sr);
+Abpm = 60/median(diff(ba));
+disp(['Tempo: MIDI=',num2str(Mbpm),' audio=',num2str(Abpm)]);
+if abs(log(Mbpm/Abpm)) > (log(1.2))
+  disp('**** WARNING: likely tempo mismatch - redoing MIDI');
+  % Redo midi using audio tempo?
+  [DMB,bm,ff] = beatsynclogspec(dm, sr, [Abpm, .5]);
+  Mbpm = 60/median(diff(bm));
+  disp(['Tempo: MIDI=',num2str(Mbpm),' audio=',num2str(Abpm)]);  
+end
+
 
 % Check for transposition
 dropbass = 40;  % lowest channels are blurry & high energy - don't use
@@ -83,8 +94,13 @@ DAB = DAB.^ampexp;
 
 % similarity matrix on normalized features
 nfcw = 51;
-SM =  1 - simmx(rownorm01(normftrcols(DAB,nfcw)), ...
-                rownorm01(normftrcols(DMB,nfcw)));
+%SM =  1 - simmx(rownorm01(normftrcols(DAB,nfcw)), ...
+%                rownorm01(normftrcols(DMB,nfcw)));
+K = [-1 -2 -1; 2 4 2; -1 -2 -1];
+SM = 1 - simmx(double(conv2(rownorm01(normftrcols(DAB,nfcw)),K,'same')>0), ...
+               double(conv2(rownorm01(normftrcols(DMB,nfcw)),K,'same')>0));
+
+
 
 % best path
 %[p,q] = dpfast(SM,[[1 1 1.0; 0 1 horizwt;1 0 horizwt]],0,gulley);

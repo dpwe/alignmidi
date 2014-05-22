@@ -35,13 +35,16 @@ D(2:(r+1), 2:(c+1)) = M;
 % traceback
 phi = zeros(r,c);
 
-for i = 1:r; 
+for i = 1:r;
   for j = 1:c;
-    [dmin, tb] = min([D(i, j), pen*D(i, j+1), pen*D(i+1, j)]);
+    [dmin, tb] = min([D(i, j), pen+D(i, j+1), pen+D(i+1, j)]);
     D(i+1,j+1) = D(i+1,j+1)+dmin;
     phi(i,j) = tb;
   end
 end
+
+% Strip off the edges of the D matrix before returning
+D = D(2:(r+1),2:(c+1));
 
 if G == 0
   % Traceback from top left
@@ -51,9 +54,13 @@ else
   % Traceback from lowest cost "to edge" (gulleys)
   TE = D(r,:);
   RE = D(:,c);
+  % GulleyFix1: normalize points in gulleys by their shorter
+  % theoretical lengths
+  TE = TE ./ [1:length(TE)];
+  RE = RE ./ [1:length(RE)]';
   % eliminate points not in gulleys
-  TE(1:round((1-G)*c)) = max(max(D));
-  RE(1:round((1-G)*r)) = max(max(D));
+  TE(1:round((1-G)*c)) = NaN; %max(max(D));
+  RE(1:round((1-G)*r)) = NaN; %max(max(D));
   if (min(TE) < min(RE))
     i = r;
     j = max(find(TE==min(TE)));
@@ -85,5 +92,21 @@ while i > 1 && j > 1
   q = [j,q];
 end
 
-% Strip off the edges of the D matrix before returning
-D = D(2:(r+1),2:(c+1));
+DEBUG = 0;
+if DEBUG
+  figure(2)
+  subplot(321)
+  plot([TE, fliplr(RE')])
+  endpos = q(end);
+  if endpos == c
+    endpos = length(TE) + length(RE) - (p(end)-1);
+  end
+  ax = axis(); hold on; plot([endpos endpos], [ax(3) ax(4)], '-r'); ...
+       hold off
+  subplot(325)
+  plot(p, q-p)
+  subplot(122)
+  imgsc(M)
+  hold on; plot(q,p,'r'); hold off
+  figure(1)
+end

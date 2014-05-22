@@ -5,7 +5,7 @@ function [D,b,frqs] = beatsynclogspec(d, sr, initbpm, tightness)
 %   frqs is center frq in Hz of each bin
 % 2013-07-17 Dan Ellis dpwe@ee.columbia.edu
 
-if nargin < 3; initbpm = 240; end
+if nargin < 3; initbpm = [240 0.5]; end  % 2014-02-16 added .75 spread
 if nargin < 4; tightness = 800; end
 
 b = beat2(d, sr, initbpm, tightness);

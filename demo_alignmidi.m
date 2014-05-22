@@ -154,6 +154,11 @@ title('Original MIDI (offset 2.45 sec to line up start)')
 
 %% Changelog
 
+% v0.03  2014-03-12 - Major fixes to transposition estimation, DP penalty
+%                     scoring, correct weighting of paths in
+%                     gulleys, and promoting consistency between
+%                     tempos in MIDI and audio. 
+%
 % v0.02  2013-07-19 - beat2 modified to use full bandwidth when
 %                     estimating onset strength (was losing hi-hats
 %                     by downsampling to 8kHz).  Small changes to
