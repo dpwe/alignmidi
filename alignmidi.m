@@ -11,8 +11,12 @@ function [p,q,SM,DAB,DMB,baa,bma] = alignmidi(MF,WF,do_plot,out,params)
 %      params holds various other parameters:
 %        params.tightness = 800 - beat tracking rigidity
 %        params.voxchan = 4     - MIDI channel to isolate as vox
+%        params.usedtw = 0      - 1 = use DTW; 0 = use Viterbi
 %        params.gulley = 0.33   - proportion of edges where DTW can start/end
 %        params.horizwt = 0.5   - penalty factor for horiz/vert DTW steps
+%        params.priorwidth = 0.33 - spread of prior on Viterbi initial state
+%        params.txwidth = 2.0   - viterbi transition with scale
+%        params.txfloor = 0.001 - worst-case viterbi jump probability
 %     Outputs:
 %      [p,q] are the path from DP
 %      S is the similarity matrix.
@@ -21,8 +25,8 @@ function [p,q,SM,DAB,DMB,baa,bma] = alignmidi(MF,WF,do_plot,out,params)
 %       and midi respectively.
 %  2013-07-16 Dan Ellis dpwe@ee.columbia.edu
 
-VERSION = 0.03;
-DATE = 20140312;
+VERSION = 0.04;
+DATE = 20140314;
 
 if nargin < 3;  do_plot = 0; end
 if nargin < 4;  out = MF; end
@@ -36,12 +40,21 @@ if ischar(do_plot);  do_plot = str2num(do_plot); end
 if ~isfield(params, 'tightness'); params.tightness = 800; end
 % MIDI channel to isolate for vocals - 4 by convention
 if ~isfield(params, 'voxchan');   params.voxchan = 4; end
+% Do we use DTW or Viterbi alignment?
+if ~isfield(params, 'usedtw');    params.usedtw = 0; end
 % Proportion of initial and final edges to accept for DTW
 % (mismatched start/end)
 if ~isfield(params, 'gulley');    params.gulley = 0.3; end
 % Extra weighting for horizontal/vertical steps in DTW (to
 % encourage diagonal)
 if ~isfield(params, 'horizwt');   params.horizwt = 0.5; end
+% Equivalent of gulley for Viterbi - how broad is initial state prior
+if ~isfield(params, 'priorwidth');   params.priorwidth = 0.5; end
+% Equivalent horizwt for Viterbi - how wide is laplacian on transition
+if ~isfield(params, 'txwidth');   params.txwidth = 2.0; end
+% Probability of jump to any remote spot for Viterbi
+if ~isfield(params, 'txfloor');   params.txfloor = 0.1; end
+
 
 % output file names
 [p,n,e] = fileparts(out);
@@ -49,14 +62,9 @@ MFout = fullfile(p, [n, '-mix.mid']);
 MFvox = fullfile(p, [n, '-vox.mid']);
 MFins = fullfile(p, [n, '-ins.mid']);
 
-% Synthesize midi
-MFA = midi2wav(MF);
-
-% Read synthesized audio
+% Read midi synthesized audio
 sr = 11025;
-dm = audioread(MFA, sr, 1);
-% .. and discard it
-delete(MFA);
+dm = midireadasaudio(MF, sr, 1);
 
 % Read actual audio
 da = audioread(WF, sr, 1);
@@ -97,22 +105,32 @@ nfcw = 51;
 %SM =  1 - simmx(rownorm01(normftrcols(DAB,nfcw)), ...
 %                rownorm01(normftrcols(DMB,nfcw)));
 K = [-1 -2 -1; 2 4 2; -1 -2 -1];
-SM = 1 - simmx(double(conv2(rownorm01(normftrcols(DAB,nfcw)),K,'same')>0), ...
-               double(conv2(rownorm01(normftrcols(DMB,nfcw)),K,'same')>0));
+SM = simmx(double(conv2(rownorm01(normftrcols(DMB,nfcw)),K,'same')>0), ...
+           double(conv2(rownorm01(normftrcols(DAB,nfcw)),K,'same')>0));
 
 
-
-% best path
-%[p,q] = dpfast(SM,[[1 1 1.0; 0 1 horizwt;1 0 horizwt]],0,gulley);
-%horizwt = 1.1; % added cost of horizontal moves
-%gulley = 0.2;  % proportion of final edges OK
-[p,q,C,phi,score] = dpmod(SM, params.horizwt, params.gulley);
-lp = length(p);
-l1090 = (round(0.1*lp)+1):round(0.9*lp);
-disp(['SD of 10..90% of path = ',num2str(std(p(l1090)-q(l1090)))]);
-%disp(['DP Best cost per pt = ',num2str(score/length(p))]);
-disp(['DP Best cost per pt 10..90 = ', ...
-      num2str(mean(SM(sub2ind(size(SM),p(l1090),q(l1090)))))]);
+if params.usedtw
+  disp('Using traditional DTW');
+  % best path
+  %[p,q] = dpfast(SM,[[1 1 1.0; 0 1 horizwt;1 0 horizwt]],0,gulley);
+  %horizwt = 1.1; % added cost of horizontal moves
+  %gulley = 0.2;  % proportion of final edges OK
+  [p,q,C,phi,score] = dpmod(1-SM', params.horizwt, params.gulley);
+  lp = length(p);
+  l1090 = (round(0.1*lp)+1):round(0.9*lp);
+  disp(['SD of 10..90% of path = ',num2str(std(p(l1090)-q(l1090)))]);
+  %disp(['DP Best cost per pt = ',num2str(score/length(p))]);
+  disp(['DP Best cost per pt 10..90 = ', ...
+        num2str(mean(SM(sub2ind(size(SM),q(l1090),p(l1090)))))]);
+else % USEVITERBI
+  disp('Using viterbi alignment');
+  nr = size(SM,1);
+  pri = exp(-0.5*([1:nr]/(params.priorwidth*nr)).^2);
+  rtx = max(params.txfloor, exp(-abs([-(nr-2):(nr)]'/params.txwidth)));
+  [pp,tc,trb] = viterbi_implicittx(SM, pri, rtx);
+  p = 1:size(SM,2);
+  q = pp;
+end
 
 % aligned beat times
 bma = bm(q);
@@ -141,15 +159,15 @@ if do_plot
 
   subplot(122)
   imgsc(SM);
-  hold on; plot(q,p,'r'); hold off
+  hold on; plot(p,q,'r'); hold off
   title('Similarity matrix and best path');
-  xlabel('time / sec')
-  ylabel('time / sec');
+  xlabel('time in audio / beats')
+  ylabel('time in midi / beats');
   
   subplot(325)
   plot(p, q-p);
   xlabel('beats in ref');
-  ylabel('delay of mid / beats');
+  ylabel('delay of midi / beats');
   
   gcolor;
 end

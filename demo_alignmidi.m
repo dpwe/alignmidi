@@ -17,6 +17,14 @@
 % of MIDI event times will be done using each beat as an anchor
 % point, the temporal precision is usually good (as long as the 
 % beat tracker worked.
+%
+% Note that this code has been significantly improved in March
+% 2014.  Firstly, we made a range of improvements to the local
+% similarity computation and DTW path picking (v0.03).  Then we
+% replaced DTW with full Viterbi alignment, which allows arbitrary
+% jumps to accommodate missing or repeated sections etc.  You can
+% still select DTW paths (which avoid really big jumps) as an
+% option to alignmidi (params.usedtw=1); DTW runs a lot faster.
 
 %% Example usage
 % The code below shows how to run the alignment using the main
@@ -81,6 +89,19 @@ caxis([-40 40])
 axis([2.45+[0 10] 0.5 73.5])
 title('Original MIDI (offset 2.45 sec to line up start)')
 
+%% Parameters
+%
+% <alignmidi.m alignmidi> accepts a number of different parameters as fields of a 
+% "params" structure, passed as the fifth argument.  They are:
+
+%        params.tightness = 800 - beat tracking rigidity
+%        params.voxchan = 4     - MIDI channel to isolate as vox
+%        params.usedtw = 0      - 1 = use DTW; 0 = use Viterbi
+%        params.gulley = 0.33   - proportion of edges where DTW can start/end
+%        params.horizwt = 0.5   - penalty factor for horiz/vert DTW steps
+%        params.priorwidth = 0.33 - spread of prior on Viterbi initial state
+%        params.txwidth = 2.0   - viterbi transition with scale
+%        params.txfloor = 0.001 - worst-case viterbi jump probability
 
 %% Installation
 % 
@@ -154,9 +175,18 @@ title('Original MIDI (offset 2.45 sec to line up start)')
 
 %% Changelog
 
+% v0.04  2014-03-14 - Default alignment is now viterbi (which
+%                     permits arbitrarily large jumps both
+%                     backwards and forwards if the likelihood
+%                     gains are large enough) instead of the
+%                     strictly monotonic paths of DTW.  But DTW is
+%                     much faster, and can still be selected with 
+%                     params.usedtw=1
+%
 % v0.03  2014-03-12 - Major fixes to transposition estimation, DP penalty
 %                     scoring, correct weighting of paths in
-%                     gulleys, and promoting consistency between
+%                     gulleys, contrast binarizing of CQ spectra, 
+%                     and promoting consistency between
 %                     tempos in MIDI and audio. 
 %
 % v0.02  2013-07-19 - beat2 modified to use full bandwidth when

@@ -34,6 +34,7 @@ SRCS=${DEMOFILE}.m ${PROG}.m \
 	beatavg.m \
 	beatsynclogspec.m \
 	dpmod.m \
+	viterbi_implicittx.m \
 	findtransposition.m \
 	logfsgram.m \
 	maptimes_interp.m \
@@ -44,6 +45,7 @@ SRCS=${DEMOFILE}.m ${PROG}.m \
 	whiten.m \
 	rot.m \
 	imgsc.m \
+	simmx.m \
 	\
 	audioread.m \
 	mp3read.m
