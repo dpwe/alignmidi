@@ -21,8 +21,8 @@ function [p,q,SM,DAB,DMB,baa,bma] = alignmidi(MF,WF,do_plot,out,params)
 %       and midi respectively.
 %  2013-07-16 Dan Ellis dpwe@ee.columbia.edu
 
-VERSION = 0.01;
-DATE = 20130717;
+VERSION = 0.02;
+DATE = 20130719;
 
 if nargin < 3;  do_plot = 0; end
 if nargin < 4;  out = MF; end

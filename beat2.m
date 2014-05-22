@@ -41,6 +41,8 @@ if nargin < 3;   startbpm = 0; end
 if nargin < 4;   tightness = 0; end
 if nargin < 5;   doplot = 0; end
 
+PLOTCUMSCORE = 0;  % leave 4th pane as tempo autoco
+
 if length(startbpm) == 2
   temposd = startbpm(2);
   startbpm = startbpm(1);
@@ -96,7 +98,7 @@ if startbpm == 0 | temposd > 0 | length(onsetenv) == 0
   % Subfunction estimates global BPM; returns 'onset strength'
   % waveform onsetenv
   % If we were given an onsetenv as input, will use that
-  [t,xcr,D,onsetenv,oesr] = tempo2(d,sr,tempomean,temposd,debug);
+  [t,xcr,D,onsetenv,oesr,ff] = tempo2(d,sr,tempomean,temposd,debug);
   
   % tempo.m returns the top-2 BPM estimates; use faster one for
   % beat tracking
@@ -120,6 +122,8 @@ if startbpm == 0 | temposd > 0 | length(onsetenv) == 0
     tt = [1:length(onsetenv)]/oesr;
     subplot(411)
     imagesc(tt,[1 40],D); axis xy
+    ytk = get(gca,'YTick');
+    set(gca,'YTickLabel',round(ff(ytk)));
     subplot(412)
     plot(tt,onsetenv);
   
@@ -132,15 +136,16 @@ end
 onsetenv = onsetenv/std(onsetenv);
 
 % convert startbpm to startpd
-startpd = (60*oesr)/startbpm;
+startpd = round((60*oesr)/startbpm);
 %disp(['startpd=',num2str(startpd)]);
 
 pd = startpd;
-  
+
 % Smooth beat events
 templt = exp(-0.5*(([-pd:pd]/(pd/32)).^2));
 localscore = conv(templt,onsetenv);
-localscore = localscore(round(length(templt)/2)+[1:length(onsetenv)]);
+%localscore = localscore(round(length(templt)/2)+[1:length(onsetenv)]);
+localscore = localscore(pd+[1:length(onsetenv)]);
 %imagesc(localscore)%%%%
 
 % DP version:
@@ -253,15 +258,17 @@ if doplot == 1
   ax([3 4]) = [-10 80];
   axis(ax);
    
-  % 4th pane as cumscore
-  subplot(414)
-  tt = [1:length(localscore)]/oesr;
-  ocumscore = cumscore - [0:length(cumscore)-1]*max(cumscore)/length(cumscore);
-  plot(tt,ocumscore);
-  hold on; plot([b;b],[min(ocumscore);max(ocumscore)]*ones(1,length(b)),'g'); hold off
-  
+  if PLOTCUMSCORE
+     % 4th pane as cumscore
+     subplot(414)
+     tt = [1:length(localscore)]/oesr;
+     ocumscore = cumscore - [0:length(cumscore)-1]*max(cumscore)/length(cumscore);
+     plot(tt,ocumscore);
+     hold on; plot([b;b],[min(ocumscore);max(ocumscore)]*ones(1,length(b)),'g'); hold off
+  end
+     
   if length(plotlims) > 0
-    for i = 1:4;
+    for i = 1:(3+PLOTCUMSCORE);
       subplot(4,1,i)
       ax = axis;
       ax([1 2]) = plotlims;
@@ -273,8 +280,8 @@ end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [t,xcr,D,onsetenv,oesr] = tempo2(d,sr,tmean,tsd,debug)
-% [t,xcr,D,onsetenv,oesr] = tempo(d,sr,tmean,tsd,debug)
+function [t,xcr,D,onsetenv,oesr,ff] = tempo2(d,sr,tmean,tsd,debug)
+% [t,xcr,D,onsetenv,oesr,ff] = tempo(d,sr,tmean,tsd,debug)
 %    Estimate the overall tempo of a track for the MIREX McKinney
 %    contest.  
 %    d is the input audio at sampling rate sr.  tmean is the mode
@@ -287,6 +294,7 @@ function [t,xcr,D,onsetenv,oesr] = tempo2(d,sr,tmean,tsd,debug)
 %    D is the mel-freq spectrogram
 %    onsetenv is the "onset strength waveform", used for beat tracking
 %    oesr is the sampling rate of onsetenv and D.
+%    ff returns the center freqs of each row of D.
 %
 % 2006-08-25 dpwe@ee.columbia.edu
 % uses: localmax, fft2melmx
@@ -323,10 +331,16 @@ if sr < 2000
 else
   onsetenv = [];
   
-  sro = 8000;
+%  sro = 8000;
+%  sro = 22050;
+  % 2013-07-19: Calculate onset function using all the bandwidth
+  % we're given
+  sro = sr;
   % specgram: 256 bin @ 8kHz = 32 ms / 4 ms hop
-  swin = 256;
-  shop = 32;
+  %swin = 256;
+  swin = 2^round(log(0.016*sro)/log(2));
+  %shop = 32;
+  shop = round(0.004*sro);
   % mel channels
   nmel = 40;
   % sample rate for specgram frames (granularity for rest of processing)
@@ -337,11 +351,17 @@ end
 acmax = round(4*oesr);
 
 D = 0;
-  
+ff = [];
+
 if length(onsetenv) == 0
   % no onsetenv provided - have to calculate it
 
-  % resample to 8 kHz
+  % ensure mono
+  if size(d,2) > 1
+    d = mean(d,2);
+  end
+  
+  % resample to target sampling rate?
   if (sr ~= sro)
     gg = gcd(sro,sr);
     d = resample(d,sro/gg,sr/gg);
@@ -351,7 +371,8 @@ if length(onsetenv) == 0
   D = specgram(d,swin,sr,swin,swin-shop);
 
   % Construct db-magnitude-mel-spectrogram
-  mlmx = fft2melmx(swin,sr,nmel);
+%  mlmx = fft2melmx(swin,sr,nmel);
+  [mlmx,ff] = fft2melmx(swin,1.0*sr,nmel);
   D = 20*log10(max(1e-10,mlmx(:,1:(swin/2+1))*abs(D)));
 
   % Only look at the top 80 dB
@@ -478,10 +499,11 @@ if debug > 0
                       ''],num2str(t(2)),' bpm @ ',num2str(1-t(3))]);
 
   subplot(414)
-  plot([0:acmax],xcr,'-b', ...
-       [0:acmax],xcrwin*maxpk,'-r', ...
-       [startpd startpd], [min(xcr) max(xcr)], '-g', ...
-       [startpd2 startpd2], [min(xcr) max(xcr)], '-c');
+  tt = [0:acmax]/oesr;
+  plot(tt,xcr,'-b', ...
+       tt,xcrwin*maxpk,'-r', ...
+       [startpd startpd]/oesr, [min(xcr) max(xcr)], '-g', ...
+       [startpd2 startpd2]/oesr, [min(xcr) max(xcr)], '-c');
   grid;
 
 end

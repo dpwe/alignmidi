@@ -5,7 +5,7 @@ PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <!--
 This HTML was auto-generated from MATLAB code.
 To make changes, update the MATLAB code and republish this document.
---><title>alignmidi - Aligning MIDI files to music audio</title><meta name="generator" content="MATLAB 7.11"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2013-07-18"><meta name="DC.source" content="demo_alignmidi.m"><style type="text/css">
+--><title>alignmidi - Aligning MIDI files to music audio</title><meta name="generator" content="MATLAB 7.11"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2013-08-24"><meta name="DC.source" content="demo_alignmidi.m"><style type="text/css">
 body {
 background-color: white;
 margin:10px;
@@ -78,12 +78,12 @@ domono = 1;
 soundsc([da(1:20*sr), dm(1:20*sr)], sr); <A HREF="demo_alignmidi_01.wav"><IMG SRC="sound.png" ALT="[sound]" ALIGN="middle"></A>
 </pre><pre class="codeoutput">dyld: DYLD_ environment variables being ignored because main executable (/usr/bin/osascript) is code signed with entitlements
 SD of 10..90% of path = 0
-DP Best cost per pt 10..90 = 0.72426
-Warn: 2 negative time events removed
+DP Best cost per pt 10..90 = 0.72394
+Warn: 3 negative time events removed
 Warn: 8 negative time pitch wheel events removed
 Saved to tmp-mix.mid
 Wrote tmp-vox.mid
-Warn: 2 negative time events removed
+Warn: 3 negative time events removed
 Warn: 8 negative time pitch wheel events removed
 Wrote tmp-ins.mid
 dyld: DYLD_ environment variables being ignored because main executable (/usr/bin/osascript) is code signed with entitlements
@@ -120,8 +120,13 @@ dyld: DYLD_ environment variables being ignored because main executable (/usr/bi
 <tr><td>64 bit MacOS</td>
 <td><a href="alignmidi_MACI64.zip">alignmidi_MACI64.zip</a></td>
 <td><a href="http://www.ee.columbia.edu/~dpwe/tmp/MCRInstaller.dmg">MACI64 MCR Installer</a></td></tr>
-</table></p><p>The original Matlab code used to build this compiled target is available at <a href="http://www.ee.columbia.edu/~dpwe/resources/matlab/alignmidi">http://www.ee.columbia.edu/~dpwe/resources/matlab/alignmidi</a></p><p>All sources are in the package <a href="alignmidi-v0.01.zip">alignmidi-v0.01.zip</a>.</p><p>Feel free to contact me with any problems.</p><h2>Notes<a name="4"></a></h2><p>The included function <a href="audioread.m">audioread</a> is able to read a wide range of sound file types, but relies on a number of other packages and/or support functions being installed.  Most obscure of these is  ReadSound, a MEX wrapper I wrote for the dpwelib sound file interface.  See the <a href="http://labrosa.ee.columbia.edu/matlab/audioread/">audioread homepage</a> for more details.</p><p>To link to the Java code for reading and writing MIDI files, you need to "edit classpath.txt" within Matlab, as described in <a href="http://www.ee.columbia.edu/~csmit/karaoke_midi.html">Christine's instructions</a>.  And then you'll have to restart Matlab. Else you'll get an error like "Undefined variable "PianoRollViewParser" or class "PianoRollViewParser.parse"."</p><p>This code supercedes an earlier effort, <a href="http://labrosa.ee.columbia.edu/~dpwe/resources/matlab/alignmidiwav/">alignmidiwav</a> .</p><h2>Referencing<a name="5"></a></h2><p>If you use this work in a publication, I would be grateful if you referenced this page as follows:</p><p>D. P. W. Ellis (2013).  "Aligning MIDI files to music audio", web resource. <a href="http://www.ee.columbia.edu/~dpwe/resources/matlab/alignmidi/">http://www.ee.columbia.edu/~dpwe/resources/matlab/alignmidi/</a></p><h2>Acknowledgment<a name="6"></a></h2><p>This project was supported in part by the NSF under grant IIS-1117015. Any opinions, findings and conclusions or recommendations expressed in this material are those of the authors and do not necessarily reflect the views of the Sponsors.</p><h2>Changelog<a name="7"></a></h2><pre class="codeinput"><span class="comment">% v0.01  2013-07-17 - Initial release</span>
-<span class="comment">% Last updated: $Date: 2011/12/09 20:30:34 $</span>
+</table></p><p>The original Matlab code used to build this compiled target is available at <a href="http://www.ee.columbia.edu/~dpwe/resources/matlab/alignmidi">http://www.ee.columbia.edu/~dpwe/resources/matlab/alignmidi</a></p><p>All sources are in the package <a href="alignmidi-v0.02.zip">alignmidi-v0.02.zip</a>.</p><p>Feel free to contact me with any problems.</p><h2>Notes<a name="4"></a></h2><p>The included function <a href="audioread.m">audioread</a> is able to read a wide range of sound file types, but relies on a number of other packages and/or support functions being installed.  Most obscure of these is  ReadSound, a MEX wrapper I wrote for the dpwelib sound file interface.  See the <a href="http://labrosa.ee.columbia.edu/matlab/audioread/">audioread homepage</a> for more details.</p><p>To link to the Java code for reading and writing MIDI files, you need to "edit classpath.txt" within Matlab, as described in <a href="http://www.ee.columbia.edu/~csmit/karaoke_midi.html">Christine's instructions</a>.  And then you'll have to restart Matlab. Else you'll get an error like "Undefined variable "PianoRollViewParser" or class "PianoRollViewParser.parse"."</p><p>This code needs to convert MIDI to audio; this is accomplished by <a href="midi2wav.m">midi2wav.m</a>.  What this function does depends on the architecture: on my Mac, it runs the AppleScript script <a href="midi2aiff.scpt">midi2aiff.scpt</a>, which uses QuickTime Player 7.app to import MIDI and export a waveform.  If you don't have QTP7 installed, it won't work.  On Linux, it uses the open-source MIDI synthesizer <a href="http://timidity.sourceforge.net/">timidity</a>, which works well <b>as long as you change the default sound font</b> to be fluidr3_gm.cfg instead of freepats.cfg, by editing /etc/timidity/timidity.cfg. The bass drum in the freepats sound font is inexplicably awful.</p><p>This code supercedes an earlier effort, <a href="http://labrosa.ee.columbia.edu/~dpwe/resources/matlab/alignmidiwav/">alignmidiwav</a> .</p><h2>Referencing<a name="5"></a></h2><p>If you use this work in a publication, I would be grateful if you referenced this page as follows:</p><p>D. P. W. Ellis (2013).  "Aligning MIDI files to music audio", web resource. <a href="http://www.ee.columbia.edu/~dpwe/resources/matlab/alignmidi/">http://www.ee.columbia.edu/~dpwe/resources/matlab/alignmidi/</a></p><h2>Acknowledgment<a name="6"></a></h2><p>This project was supported in part by the NSF under grant IIS-1117015. Any opinions, findings and conclusions or recommendations expressed in this material are those of the authors and do not necessarily reflect the views of the Sponsors.</p><h2>Changelog<a name="7"></a></h2><pre class="codeinput"><span class="comment">% v0.02  2013-07-19 - beat2 modified to use full bandwidth when</span>
+<span class="comment">%                     estimating onset strength (was losing hi-hats</span>
+<span class="comment">%                     by downsampling to 8kHz).  Small changes to</span>
+<span class="comment">%                     beat timing in beat2.</span>
+<span class="comment">%</span>
+<span class="comment">% v0.01  2013-07-17 - Initial release</span>
+<span class="comment">% Last updated: $Date: 2013/08/24 13:04:10 $</span>
 <span class="comment">% Dan Ellis &lt;dpwe@ee.columbia.edu&gt;</span>
 </pre><p class="footer"><br>
 Published with MATLAB&reg; 7.11<br></p></div><!--
@@ -223,7 +228,7 @@ title('Original MIDI (offset 2.45 sec to line up start)')
 % The original Matlab code used to build this compiled target is 
 % available at <http://www.ee.columbia.edu/~dpwe/resources/matlab/alignmidi>
 %
-% All sources are in the package <alignmidi-v0.01.zip>.
+% All sources are in the package <alignmidi-v0.02.zip>.
 %
 % Feel free to contact me with any problems.
 %% Notes
@@ -243,6 +248,18 @@ title('Original MIDI (offset 2.45 sec to line up start)')
 % Else you'll get an error like "Undefined variable
 % "PianoRollViewParser" or class "PianoRollViewParser.parse"."
 %
+% This code needs to convert MIDI to audio; this is accomplished by 
+% <midi2wav.m>.  What this function does depends on the
+% architecture: on my Mac, it runs the AppleScript script
+% <midi2aiff.scpt>, which uses QuickTime Player 7.app to import
+% MIDI and export a waveform.  If you don't have QTP7 installed, it
+% won't work.  On Linux, it uses the open-source MIDI synthesizer 
+% <http://timidity.sourceforge.net/ timidity>, which works well 
+% *as long as you change the default sound font*
+% to be fluidr3_gm.cfg 
+% instead of freepats.cfg, by editing /etc/timidity/timidity.cfg.
+% The bass drum in the freepats sound font is inexplicably awful.
+%
 % This code supercedes an earlier effort, 
 % <http://labrosa.ee.columbia.edu/~dpwe/resources/matlab/alignmidiwav/ alignmidiwav> .
 %% Referencing
@@ -257,8 +274,13 @@ title('Original MIDI (offset 2.45 sec to line up start)')
 % or recommendations expressed in this material are those of the 
 % authors and do not necessarily reflect the views of the Sponsors.
 %% Changelog
+% v0.02  2013-07-19 - beat2 modified to use full bandwidth when
+%                     estimating onset strength (was losing hi-hats
+%                     by downsampling to 8kHz).  Small changes to
+%                     beat timing in beat2.
+%
 % v0.01  2013-07-17 - Initial release
-% Last updated: $Date: 2011/12/09 20:30:34 $
+% Last updated: $Date: 2013/08/24 13:04:10 $
 % Dan Ellis <dpwe@ee.columbia.edu>
 ##### SOURCE END #####
 --></body></html>

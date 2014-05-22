@@ -124,6 +124,18 @@ title('Original MIDI (offset 2.45 sec to line up start)')
 % Else you'll get an error like "Undefined variable
 % "PianoRollViewParser" or class "PianoRollViewParser.parse"."
 %
+% This code needs to convert MIDI to audio; this is accomplished by 
+% <midi2wav.m>.  What this function does depends on the
+% architecture: on my Mac, it runs the AppleScript script
+% <midi2aiff.scpt>, which uses QuickTime Player 7.app to import
+% MIDI and export a waveform.  If you don't have QTP7 installed, it
+% won't work.  On Linux, it uses the open-source MIDI synthesizer 
+% <http://timidity.sourceforge.net/ timidity>, which works well 
+% *as long as you change the default sound font*
+% to be fluidr3_gm.cfg 
+% instead of freepats.cfg, by editing /etc/timidity/timidity.cfg.
+% The bass drum in the freepats sound font is inexplicably awful.
+%
 % This code supercedes an earlier effort, 
 % <http://labrosa.ee.columbia.edu/~dpwe/resources/matlab/alignmidiwav/ alignmidiwav> .
 
@@ -142,7 +154,12 @@ title('Original MIDI (offset 2.45 sec to line up start)')
 
 %% Changelog
 
+% v0.02  2013-07-19 - beat2 modified to use full bandwidth when
+%                     estimating onset strength (was losing hi-hats
+%                     by downsampling to 8kHz).  Small changes to
+%                     beat timing in beat2.
+%
 % v0.01  2013-07-17 - Initial release
 
-% Last updated: $Date: 2011/12/09 20:30:34 $
+% Last updated: $Date: 2013/08/24 13:04:10 $
 % Dan Ellis <dpwe@ee.columbia.edu>

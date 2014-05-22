@@ -42,6 +42,7 @@ SRCS=${DEMOFILE}.m ${PROG}.m \
 	normftrcols.m \
 	rownorm01.m \
 	whiten.m \
+	rot.m \
 	imgsc.m \
 	\
 	audioread.m \
