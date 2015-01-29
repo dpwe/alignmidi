@@ -34,6 +34,10 @@ changesInMidi =  PitchWheelChangeViewParser.parse(seq);
 
 changes = changesInMidi.getPitchWheelChangesDoubles();
 
+if length(changes) == 0
+  return
+end
+
 % convert the pitch wheel to semitones, 0x0000..0x4000 becomes -2 .. 2
 changes(:,1) = (changes(:,1) - 8192)/4096;
 % convert the ticks to beats...
