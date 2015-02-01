@@ -34,6 +34,11 @@ changesInMidi =  ProgramChangeViewParser.parse(seq);
 
 changes = changesInMidi.getProgramChangesDoubles();
 
+if length(changes) == 0
+  changes = zeros(0, 5);
+  return
+end
+
 % add 1 to the patch numbers
 changes(:,1) = changes(:,1) +1;
 % convert the ticks to beats...

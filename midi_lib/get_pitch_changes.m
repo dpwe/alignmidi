@@ -35,6 +35,7 @@ changesInMidi =  PitchWheelChangeViewParser.parse(seq);
 changes = changesInMidi.getPitchWheelChangesDoubles();
 
 if length(changes) == 0
+  changes = zeros(0, 5);
   return
 end
 

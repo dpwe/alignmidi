@@ -32,6 +32,11 @@ ticksPerQuarterNote = seq.getResolution();
 temposInTracks = SetTempoViewParser.parse(seq);
 tempos = temposInTracks.getTemposDoubles;
 
+if length(tempos) == 0
+  tempos = zeros(0, 4);
+  return
+end
+
 % convert the first column from microseconds per quarter note to beats
 % per minutes
 col = 1./tempos(:,1); % quarter notes per microsecond

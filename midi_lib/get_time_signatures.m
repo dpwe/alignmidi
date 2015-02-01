@@ -32,6 +32,11 @@ seq = MidiSystem.getSequence(midiFile);
 timeSignatureRoll = TimeSignatureViewParser.parse(seq);
 timeSignatures = timeSignatureRoll.getTimeSignaturesDoubles;
 
+if length(timeSignatures) == 0
+  timeSignatures = zeros(0, 7);
+  return
+end
+
 % get the number of ticks/quarter note, which I assume is the
 % 'beat' in the nm
 ticksPerQuarterNote = seq.getResolution();
